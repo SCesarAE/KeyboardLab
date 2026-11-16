@@ -20,6 +20,15 @@ export default function App() {
   // Al abrir la app, reconecta las mitades que Chrome ya autorizo
   useEffect(() => {
     void reconnectGranted()
+    if (!('serial' in navigator)) return
+    // Cuando una placa autorizada vuelve a aparecer (p. ej. tras copiar code.py), se reconecta sola
+    let t: ReturnType<typeof setTimeout>
+    const onConnect = () => {
+      clearTimeout(t)
+      t = setTimeout(() => void reconnectGranted(), 1200)
+    }
+    navigator.serial.addEventListener('connect', onConnect)
+    return () => navigator.serial.removeEventListener('connect', onConnect)
   }, [])
 
   // Modo demo: el teclado de la PC simula la matriz

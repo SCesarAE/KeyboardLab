@@ -108,7 +108,18 @@ export const useLab = create<State>((set, get) => ({
         return { devices: { ...s.devices, [adapter.id]: { ...d, status, detail, label: adapter.label } } }
       })
       if (status === 'connected') addLog('ok', `${adapter.label} conectado`)
-      if (status === 'disconnected') addLog('warn', `${adapter.label} desconectado${detail ? ': ' + detail : ''}`)
+      if (status === 'disconnected') {
+        addLog('warn', `${adapter.label} desconectado${detail ? ': ' + detail : ''}`)
+        // Un puerto USB desconectado no vuelve: se quita de la lista (al reconectarse entra como nuevo)
+        if (adapter.kind === 'webserial') {
+          adapters.delete(adapter.id)
+          set((s) => {
+            const devices = { ...s.devices }
+            delete devices[adapter.id]
+            return { devices }
+          })
+        }
+      }
       if (status === 'error') addLog('error', `${adapter.label}: ${detail ?? 'error'}`)
     })
     adapter.onRaw((line) => addLog('raw', line))

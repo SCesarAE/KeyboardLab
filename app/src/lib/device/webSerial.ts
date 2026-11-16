@@ -27,6 +27,8 @@ export class WebSerialAdapter implements DeviceAdapter {
   private readLoop: Promise<void> | null = null
   private closing = false
   private preset: SerialPort | null
+  private gotHello = false
+  private helloTimer: ReturnType<typeof setInterval> | null = null
 
   /** Si se pasa un puerto ya autorizado, no se abre el selector de Chrome */
   constructor(port?: SerialPort) {
@@ -66,8 +68,19 @@ export class WebSerialAdapter implements DeviceAdapter {
     navigator.serial.addEventListener('disconnect', this.handleUnplug)
     this.readLoop = this.read()
     this.emitStatus('connected')
-    // Pide el saludo por si code.py ya estaba corriendo
+    // Pide el saludo y reintenta: si la placa se reinicio, el primero se pierde
+    this.gotHello = false
+    let tries = 0
     await this.send({ cmd: 'hello' })
+    this.helloTimer = setInterval(() => {
+      if (this.gotHello || ++tries > 8) return this.stopHello()
+      void this.send({ cmd: 'hello' })
+    }, 1500)
+  }
+
+  private stopHello() {
+    if (this.helloTimer) clearInterval(this.helloTimer)
+    this.helloTimer = null
   }
 
   private handleUnplug = (e: Event) => {
@@ -94,6 +107,7 @@ export class WebSerialAdapter implements DeviceAdapter {
           buffer = buffer.slice(nl + 1)
           if (!line.trim()) continue
           const msg = parseLine(line)
+          if (msg?.t === 'hello') this.gotHello = true
           if (msg) this.msgCbs.forEach((cb) => cb(msg))
           else this.rawCbs.forEach((cb) => cb(line))
         }
@@ -120,6 +134,7 @@ export class WebSerialAdapter implements DeviceAdapter {
   async disconnect() {
     if (!this.port) return
     this.closing = true
+    this.stopHello()
     navigator.serial.removeEventListener('disconnect', this.handleUnplug)
     try {
       await this.reader?.cancel()
