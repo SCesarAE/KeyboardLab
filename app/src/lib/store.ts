@@ -80,6 +80,11 @@ interface State {
 // Los adaptadores no son serializables: viven fuera del estado
 export const adapters = new Map<string, DeviceAdapter>()
 
+// [KL-DIAG-RAWLOG] pines nRF de cada fila/columna raw (igual que ROW_PINS/COL_PINS de code.py).
+// Se usan solo en el log crudo de teclas; quitar junto con el bloque KL-DIAG-RAWLOG.
+const RAW_ROW_PINS = ['P0.24', 'P1.00', 'P0.11', 'P1.04', 'P1.06']
+const RAW_COL_PINS = ['P0.02', 'P1.15', 'P1.13', 'P1.11', 'P0.10', 'P0.09']
+
 const BOUNCE_MS = 30
 const warnedUnknown = new Set<string>()
 const emptyEncoder = (): EncoderStat => ({ pos: 0, cw: 0, ccw: 0, lastAt: 0, lastDir: 0 })
@@ -267,6 +272,14 @@ function handleMessage(deviceId: string, msg: DeviceMsg) {
         return
       }
       const id = keyId(dev.side, msg.r, msg.c)
+      // [KL-DIAG-RAWLOG] inicio: escribe cada evento crudo en el log con fila, columna y pines.
+      // Sirve para separar fallas de mapeo (llega el evento pero no se ilumina el cuadro)
+      // de fallas de hardware (no llega nada). Para quitarlo: borra hasta "[KL-DIAG-RAWLOG] fin".
+      addLog(
+        'info',
+        `Tecla ${sideName(dev.side)} f${msg.r} c${msg.c} (fila ${RAW_ROW_PINS[msg.r] ?? '?'}, columna ${RAW_COL_PINS[msg.c] ?? '?'}) ${msg.p ? 'presionada' : 'liberada'}`,
+      )
+      // [KL-DIAG-RAWLOG] fin
       useLab.setState((s) => {
         const prev = s.keys[id] ?? { pressed: false, count: 0, bounces: 0, downAt: 0, lastUpMs: -1e9 }
         const next: KeyStat = msg.p
