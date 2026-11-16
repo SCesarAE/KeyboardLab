@@ -29,6 +29,14 @@ jobs:
           cache-dependency-path: app/package-lock.json
       - run: npm ci
       - run: cp ../firmware/diag/code.py public/firmware/code.py
+      # CircuitPython para nice!nano: se incluye en la app para el flash asistido
+      - name: Descargar CircuitPython
+        env:
+          CP_VERSION: 10.3.2
+        run: |
+          curl -fsSL -o public/firmware/circuitpython-nice_nano.uf2 \
+            "https://downloads.circuitpython.org/bin/nice_nano/en_US/adafruit-circuitpython-nice_nano-en_US-${CP_VERSION}.uf2" \
+            || echo "::warning::No se pudo descargar CircuitPython; la app pedira el archivo"
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:

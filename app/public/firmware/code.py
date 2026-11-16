@@ -3,7 +3,7 @@
 #
 # Protocolo: JSON por lineas sobre el puerto serie USB (consola).
 #   Dispositivo -> app: {"t": "hello" | "key" | "enc" | "hb" | "ack" | "err", ...}
-#   App -> dispositivo: {"cmd": "hello" | "side" | "led" | "leds", ...}
+#   App -> dispositivo: {"cmd": "hello" | "side" | "led" | "leds" | "vcc" | "bootloader", ...}
 #
 # Coordenadas "raw": las mismas en ambas mitades.
 #   fila 0..4 (fila 4 = pulgares + tecla interior)
@@ -22,7 +22,7 @@ import rotaryio
 import supervisor
 
 FW_NAME = "keyboardlab-diag"
-FW_VERSION = "0.1.1"
+FW_VERSION = "0.1.2"
 
 # ---------------------------------------------------------------------------
 # Pinout (tomado del shield sofle de ZMK, igual al Sofle Choc de QMK)
@@ -202,6 +202,12 @@ def handle(msg):
         send({"t": "ack", "cmd": "ping"})
     elif cmd == "side":
         send({"t": "ack", "cmd": "side", "side": write_side(msg.get("v", ""))})
+    elif cmd == "bootloader":
+        # Reinicia directo al bootloader UF2 (aparece la unidad NICENANO), sin doble tap
+        send({"t": "ack", "cmd": "bootloader"})
+        time.sleep(0.2)
+        microcontroller.on_next_reset(microcontroller.RunMode.UF2)
+        microcontroller.reset()
     elif cmd == "vcc":
         vcc.value = bool(msg.get("on", True))
         time.sleep(0.05)
@@ -239,6 +245,7 @@ boot_ms = supervisor.ticks_ms()
 
 apply_static_leds()
 hello()
+was_connected = supervisor.runtime.serial_connected
 
 while True:
     now = time.monotonic()
@@ -285,7 +292,13 @@ while True:
     if render_leds(now):
         neopixel_write.neopixel_write(led_pin, led_buf)
 
-    # 5) Latido cada 2 s
+    # 5) Saludo cuando la app abre el puerto
+    connected = supervisor.runtime.serial_connected
+    if connected and not was_connected:
+        hello()
+    was_connected = connected
+
+    # 6) Latido cada 2 s
     if now - last_hb > 2.0:
         last_hb = now
         send({"t": "hb", "up": supervisor.ticks_ms() - boot_ms})

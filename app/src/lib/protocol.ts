@@ -1,7 +1,7 @@
 // Protocolo JSON por lineas entre la app y el firmware de diagnostico.
 
 /** Version de code.py que espera esta app */
-export const EXPECTED_FW = '0.1.1'
+export const EXPECTED_FW = '0.1.2'
 
 export type Side = 'left' | 'right'
 export type SideOrUnknown = Side | 'unknown'
@@ -62,6 +62,7 @@ export type HostCmd =
   | { cmd: 'side'; v: Side }
   | { cmd: 'leds'; n: number }
   | { cmd: 'vcc'; on: boolean }
+  | { cmd: 'bootloader' }
   | { cmd: 'led'; mode: LedMode; rgb?: [number, number, number]; i?: number; br?: number }
 
 export function parseLine(line: string): DeviceMsg | null {

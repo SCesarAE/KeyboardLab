@@ -153,12 +153,12 @@ export function FirmwareGuide() {
           </li>
           <li>Pulsa “Conectar mitad”, elige el puerto <code>CircuitPython</code> y asigna el lado.</li>
           <li>
-            Para volver a ZMK: doble tap, copia <code>settings_reset</code>, y luego <code>sofle_left</code> o{' '}
-            <code>sofle_right</code>.
+            Para volver a ZMK usa la pestaña <b>Flash</b> → “ZMK limpio”: reinicia al bootloader sin doble tap y escribe
+            <code> settings_reset</code> y luego <code>sofle_left</code> / <code>sofle_right</code>.
           </li>
         </ol>
       ) : (
-        <p className="muted">CircuitPython + un solo archivo. Sin librerías extra.</p>
+        <p className="muted">CircuitPython + un solo archivo. Instálalo desde la pestaña Flash → “Volver al diagnóstico”.</p>
       )}
     </Panel>
   )

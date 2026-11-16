@@ -55,6 +55,8 @@ interface State {
   log: LogEntry[]
   led: LedPreview
   demoMode: boolean
+  view: 'diag' | 'flash'
+  setView: (v: 'diag' | 'flash') => void
   hovered: string | null
   setHovered: (id: string | null) => void
   addLog: (level: LogEntry['level'], text: string) => void
@@ -82,6 +84,8 @@ export const useLab = create<State>((set, get) => ({
   log: [],
   led: { side: 'both', index: null, rgb: [0, 255, 255], mode: 'off' },
   demoMode: false,
+  view: 'diag',
+  setView: (view) => set({ view }),
   hovered: null,
   setHovered: (id) => set({ hovered: id }),
 

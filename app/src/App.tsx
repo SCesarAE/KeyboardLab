@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import Keyboard3D from './components/Keyboard3D'
+import FlashView from './components/FlashView'
 import {
   ConnectPanel, FirmwareGuide, KeyTooltip, LedPanel, LogPanel, MatrixGrid, TestPanel, connectedDemo, reconnectGranted,
 } from './components/Panels'
@@ -10,6 +11,8 @@ import type { Side } from './lib/protocol'
 export default function App() {
   const devices = useLab((s) => s.devices)
   const demoMode = useLab((s) => s.demoMode)
+  const view = useLab((s) => s.view)
+  const setView = useLab((s) => s.setView)
 
   const sides = useMemo(() => {
     const set = new Set<Side>()
@@ -64,7 +67,7 @@ export default function App() {
   }, [demoMode])
 
   return (
-    <div className="app">
+    <div className={`app view-${view}`}>
       <div className="stage">
         <Keyboard3D activeSides={sides} />
       </div>
@@ -74,9 +77,14 @@ export default function App() {
           <span className="logo">⌁</span>
           <div>
             <h1>KeyboardLab</h1>
-            <p>Fase 1 · Diagnóstico de matriz · Sofle Choc + nice!nano</p>
+            <p>Sofle Choc + nice!nano · diagnóstico y flash</p>
           </div>
         </div>
+        <nav className="tabs">
+          <button className={view === 'diag' ? 'on' : ''} onClick={() => setView('diag')}>Diagnóstico</button>
+          <button className={view === 'flash' ? 'on' : ''} onClick={() => setView('flash')}>Flash</button>
+          <button disabled title="Fase 5">Keymap</button>
+        </nav>
         <div className="chips">
           {(['left', 'right'] as Side[]).map((s) => (
             <span key={s} className={`chip ${sides.includes(s) ? 'live' : ''}`}>
@@ -88,20 +96,26 @@ export default function App() {
 
       <aside className="col left">
         <ConnectPanel />
-        <FirmwareGuide />
-        <LedPanel sides={sides} />
+        {view === 'diag' && <FirmwareGuide />}
+        {view === 'diag' && <LedPanel sides={sides} />}
       </aside>
 
-      <aside className="col right">
-        <TestPanel sides={sides} />
-      </aside>
+      {view === 'diag' ? (
+        <aside className="col right">
+          <TestPanel sides={sides} />
+        </aside>
+      ) : (
+        <main className="col flash-col">
+          <FlashView />
+        </main>
+      )}
 
       <KeyTooltip />
 
       <footer className="bottom">
-        <MatrixGrid side="left" />
+        {view === 'diag' && <MatrixGrid side="left" />}
         <LogPanel />
-        <MatrixGrid side="right" />
+        {view === 'diag' && <MatrixGrid side="right" />}
       </footer>
     </div>
   )

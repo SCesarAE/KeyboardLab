@@ -64,6 +64,6 @@ Ver `app/src/lib/protocol.ts` y `firmware/diag/code.py`.
 - [x] Fase 1: diagnóstico de matriz + encoder + LEDs, modelo 3D
 - [ ] Fase 2: OLED (simulador 128x32, envío a la pantalla real, importar GIF)
 - [ ] Fase 3: estudio de animaciones de LEDs
-- [ ] Fase 4: flash asistido de UF2
+- [x] Fase 4: flash asistido de UF2 (pestaña Flash)
 - [ ] Fase 5: editor de keymap (importa `keymap.json` de QMK) + build en GitHub Actions
 - [ ] Escritorio con Tauri
