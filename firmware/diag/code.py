@@ -30,7 +30,7 @@ except Exception:
     pass
 
 FW_NAME = "keyboardlab-diag"
-FW_VERSION = "0.2.0"
+FW_VERSION = "0.2.1"  # [KL-DIAG-HELD] antes 0.2.0; sube para confirmar que se cargo esta version
 
 # ---------------------------------------------------------------------------
 # Pinout (tomado del shield sofle de ZMK, igual al Sofle Choc de QMK)
@@ -350,6 +350,13 @@ def handle(msg):
     cmd = msg.get("cmd")
     if cmd == "hello":
         hello()
+        # [KL-DIAG-HELD] inicio: re-emite las teclas que ya estan presionadas
+        # (puentes soldados o switches atascados). Su evento de "presionar" salio
+        # al arrancar, antes de que la app abriera el puerto, y se perdio.
+        # keypad.reset() da todo por liberado y genera eventos nuevos para lo que siga cerrado.
+        # Para quitarlo: borra estas lineas hasta "[KL-DIAG-HELD] fin".
+        matrix.reset()
+        # [KL-DIAG-HELD] fin
     elif cmd == "ping":
         send({"t": "ack", "cmd": "ping"})
     elif cmd == "side":
@@ -457,6 +464,7 @@ while True:
     connected = supervisor.runtime.serial_connected
     if connected and not was_connected:
         hello()
+        matrix.reset()  # [KL-DIAG-HELD] mismo motivo que en el comando "hello"
     was_connected = connected
 
     # 6) Latido cada 2 s
