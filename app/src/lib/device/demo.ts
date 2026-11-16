@@ -4,8 +4,8 @@ import { nextId, type DeviceAdapter, type DeviceStatus } from './types'
 // Dispositivo simulado: permite probar la app sin hardware.
 // Las pulsaciones llegan desde el teclado de la PC o haciendo clic en el modelo 3D.
 export class DemoAdapter implements DeviceAdapter {
-  readonly id = nextId('demo')
-  readonly kind = 'demo' as const
+  readonly id: string
+  readonly kind: 'demo' | 'zmk'
   readonly label: string
   private msgCbs: ((m: DeviceMsg) => void)[] = []
   private statusCbs: ((s: DeviceStatus, d?: string) => void)[] = []
@@ -13,9 +13,13 @@ export class DemoAdapter implements DeviceAdapter {
   private encPos = 0
   private t0 = performance.now()
 
-  constructor(side: Side) {
+  /** kind 'zmk': las pulsaciones llegan del teclado real con ZMK (como teclas de la PC) */
+  constructor(side: Side, kind: 'demo' | 'zmk' = 'demo') {
     this.side = side
-    this.label = `Demo (${side === 'left' ? 'izquierda' : 'derecha'})`
+    this.kind = kind
+    this.id = nextId(kind)
+    const name = side === 'left' ? 'izquierda' : 'derecha'
+    this.label = kind === 'zmk' ? `ZMK (${name})` : `Demo (${name})`
   }
 
   onMessage(cb: (m: DeviceMsg) => void) {
@@ -41,7 +45,8 @@ export class DemoAdapter implements DeviceAdapter {
 
   private hello() {
     this.emit({
-      t: 'hello', fw: 'keyboardlab-diag', v: 'demo', board: 'simulado', side: this.side,
+      t: 'hello', fw: this.kind === 'zmk' ? 'zmk' : 'keyboardlab-diag', v: this.kind === 'zmk' ? 'teclado' : 'demo',
+      board: this.kind === 'zmk' ? 'nice!nano' : 'simulado', side: this.side,
       rows: 5, cols: 6, rowPins: ['D5', 'D6', 'D7', 'D8', 'D9'],
       colPins: ['D19', 'D18', 'D15', 'D14', 'D16', 'D10'], enc: true, leds: 29, maxBr: 0.35,
     })

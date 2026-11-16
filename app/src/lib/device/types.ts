@@ -7,7 +7,7 @@ export type DeviceStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
 
 export interface DeviceAdapter {
   readonly id: string
-  readonly kind: 'webserial' | 'demo'
+  readonly kind: 'webserial' | 'demo' | 'zmk'
   readonly label: string
   connect(): Promise<void>
   disconnect(): Promise<void>

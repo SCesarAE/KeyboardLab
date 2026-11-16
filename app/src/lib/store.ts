@@ -59,6 +59,8 @@ interface State {
   log: LogEntry[]
   led: LedPreview
   demoMode: boolean
+  zmkMode: boolean
+  setZmkMode: (on: boolean) => void
   view: 'diag' | 'flash'
   oledFrames: Record<Side, Uint8Array | null>
   setOledFrame: (side: Side | 'both', f: Uint8Array | null) => void
@@ -90,6 +92,8 @@ export const useLab = create<State>((set, get) => ({
   log: [],
   led: { side: 'both', index: null, rgb: [0, 255, 255], mode: 'off' },
   demoMode: false,
+  zmkMode: false,
+  setZmkMode: (on) => set({ zmkMode: on }),
   view: 'diag',
   oledFrames: { left: null, right: null },
   setOledFrame: (side, f) =>
@@ -217,7 +221,7 @@ function handleMessage(deviceId: string, msg: DeviceMsg) {
     case 'hello':
       touch({ fw: msg.fw, version: msg.v, side: msg.side, leds: msg.leds, enc: msg.enc, vcc: msg.vcc, oled: msg.oled })
       if (msg.oled === false) addLog('warn', 'No se detectó la OLED en I2C (0x3C): revisa sus 4 pines (GND, VCC, SCL, SDA)')
-      addLog('ok', `Firmware ${msg.fw} v${msg.v} · lado: ${sideName(msg.side)} · ${msg.leds} LEDs`)
+      addLog('ok', msg.fw === 'zmk' ? `Prueba con ZMK lista · mitad ${sideName(msg.side)}` : `Firmware ${msg.fw} v${msg.v} · lado: ${sideName(msg.side)} · ${msg.leds} LEDs`)
       break
     case 'hb':
       touch()

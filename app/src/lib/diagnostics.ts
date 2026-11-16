@@ -24,12 +24,12 @@ const NICE_PIN: Record<string, string> = {
 const STUCK_MS = 4000
 const sideEs = (s: Side) => (s === 'left' ? 'izquierda' : 'derecha')
 
-export function diagnose(keys: Record<string, KeyStat>, sides: Side[], now: number) {
+export function diagnose(keys: Record<string, KeyStat>, sides: Side[], now: number, exclude: Set<string> = new Set()) {
   const reports: SideReport[] = []
   const issues: Issue[] = []
 
   for (const side of sides) {
-    const sideKeys = KEYS.filter((k) => k.side === side)
+    const sideKeys = KEYS.filter((k) => k.side === side && !exclude.has(k.id))
     const tested = sideKeys.filter((k) => (keys[k.id]?.count ?? 0) > 0)
     const untested = sideKeys.filter((k) => !keys[k.id]?.count).map((k) => k.id)
     reports.push({ side, tested: tested.length, total: sideKeys.length, untested })

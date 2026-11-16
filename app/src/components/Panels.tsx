@@ -3,7 +3,7 @@ import { adapters, sideName, useLab } from '../lib/store'
 import { WebSerialAdapter, grantedPorts, isPortOpen, webSerialSupported } from '../lib/device/webSerial'
 import { DemoAdapter } from '../lib/device/demo'
 import { diagnose, labelOf } from '../lib/diagnostics'
-import { COL_PINS, KEYS, LED_ORDER, ROW_PINS, keyId } from '../lib/layout/sofle'
+import { COL_PINS, KEYS, LED_ORDER, ROW_PINS, ZMK_UNTESTABLE, keyId } from '../lib/layout/sofle'
 import { EXPECTED_FW, versionAtLeast, type LedMode, type Side } from '../lib/protocol'
 import { flashFile } from '../lib/flash/writer'
 
@@ -49,6 +49,7 @@ export function ConnectPanel() {
   }, [list.length])
 
   const startDemo = async () => {
+    await stopZmk()
     setDemoMode(true)
     await attach(new DemoAdapter('left'))
     await attach(new DemoAdapter('right'))
@@ -86,7 +87,7 @@ export function ConnectPanel() {
       </p>
       <p className="hint">
         ¿Chrome dice “No se encontraron dispositivos”? Si la mitad ya tiene ZMK, es normal: ZMK funciona como teclado, no como
-        puerto serie. Para diagnosticarla otra vez: Flash → “Volver al diagnóstico”.
+        puerto serie. Prueba sus teclas con “Prueba con ZMK” (abajo) o vuelve al diagnóstico desde Flash.
       </p>
       {demoMode && (
         <p className="hint">
@@ -215,10 +216,14 @@ export function TestPanel({ sides }: { sides: Side[] }) {
   const keys = useLab((s) => s.keys)
   const encoders = useLab((s) => s.encoders)
   const resetTests = useLab((s) => s.resetTests)
-  const { reports, issues } = useMemo(() => diagnose(keys, sides, performance.now()), [keys, sides])
+  const zmkMode = useLab((s) => s.zmkMode)
+  const { reports, issues } = useMemo(
+    () => diagnose(keys, sides, performance.now(), zmkMode ? ZMK_UNTESTABLE : undefined),
+    [keys, sides, zmkMode],
+  )
 
   return (
-    <Panel title="Prueba de matriz" right={<button className="btn tiny ghost" onClick={() => resetTests()}>Reiniciar</button>}>
+    <Panel title={zmkMode ? 'Prueba de matriz · ZMK' : 'Prueba de matriz'} right={<button className="btn tiny ghost" onClick={() => resetTests()}>Reiniciar</button>}>
       {sides.length === 0 && <p className="muted">Conecta una mitad y asígnale un lado para empezar.</p>}
       {reports.map((r) => {
         const pct = Math.round((100 * r.tested) / r.total)
@@ -430,5 +435,55 @@ export function KeyTooltip() {
       <span>{stat?.count ? `${stat.count} pulsaciones${stat.bounces ? ` · ${stat.bounces} rebotes` : ''}` : 'sin probar'}</span>
       <span>{ledIndex >= 0 ? `LED #${ledIndex}` : 'sin LED'}</span>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+export async function stopZmk() {
+  const { devices, detach, setZmkMode } = useLab.getState()
+  for (const d of Object.values(devices).filter((x) => x.kind === 'zmk')) await detach(d.id)
+  setZmkMode(false)
+}
+
+/** Prueba con ZMK: el teclado ya tiene ZMK y se prueba escribiendo (keymap por defecto) */
+export function ZmkPanel() {
+  const zmkMode = useLab((s) => s.zmkMode)
+  const demoMode = useLab((s) => s.demoMode)
+  const { attach, setZmkMode, resetTests, setDemoMode, detach, devices } = useLab()
+
+  const start = async () => {
+    if (demoMode) {
+      for (const d of Object.values(devices).filter((x) => x.kind === 'demo')) await detach(d.id)
+      setDemoMode(false)
+    }
+    resetTests()
+    setZmkMode(true)
+    await attach(new DemoAdapter('left', 'zmk'))
+    await attach(new DemoAdapter('right', 'zmk'))
+  }
+
+  return (
+    <Panel title="Prueba con ZMK">
+      <p className="hint">
+        Si tu teclado ya tiene ZMK, no necesitas el firmware de diagnóstico: conéctalo por USB o Bluetooth, activa esta prueba
+        y escribe. La app ilumina cada tecla según el <b>keymap por defecto</b> del Sofle.
+      </p>
+      <div className="row">
+        {zmkMode ? (
+          <button className="btn on" onClick={() => stopZmk()}>■ Detener prueba con ZMK</button>
+        ) : (
+          <button className="btn primary" onClick={start}>⌨ Activar prueba con ZMK</button>
+        )}
+      </div>
+      {zmkMode && (
+        <ul className="zmk-notes">
+          <li>Haz clic en la página antes de escribir (el navegador debe tener el foco).</li>
+          <li>LOWER, RAISE y las 2 teclas sin función no envían nada: quedan en violeta y no cuentan.</li>
+          <li>Encoders: izquierda = volumen, derecha = Re Pág / Av Pág.</li>
+          <li>La tecla Windows abre el menú Inicio: es normal, igual queda registrada.</li>
+          <li>Si cambiaste el keymap, usa el firmware de diagnóstico para una prueba exacta.</li>
+        </ul>
+      )}
+    </Panel>
   )
 }

@@ -40,8 +40,8 @@ function stepsFor(recipe: Recipe, side: Side): StepDef[] {
         title: 'Listo',
         hint:
           side === 'left'
-            ? 'Busca “Sofle” en Bluetooth de Windows y emparéjalo. Con ZMK ya no aparece como puerto serie en Diagnóstico.'
-            : 'Enciéndela junto a la izquierda: se enlazan solas. Con ZMK ya no aparece como puerto serie en Diagnóstico.',
+            ? 'Busca “Sofle” en Bluetooth de Windows y emparéjalo. Con ZMK ya no aparece como puerto serie: prueba sus teclas con Diagnóstico → Prueba con ZMK.'
+            : 'Enciéndela junto a la izquierda: se enlazan solas. Con ZMK ya no aparece como puerto serie: prueba sus teclas con Diagnóstico → Prueba con ZMK.',
       },
     ]
   }
@@ -147,6 +147,13 @@ export default function FlashView() {
 
       <FileTable />
 
+      {recipe === 'zmk' && (
+        <p className="notice">
+          Al instalar ZMK, la mitad deja de usar el firmware de diagnóstico: ya no aparecerá en Conexión ni podrás probar LEDs
+          u OLED desde la app. Las teclas se pueden seguir probando con <b>Diagnóstico → Prueba con ZMK</b>, y siempre puedes
+          regresar con <b>Volver al diagnóstico</b>.
+        </p>
+      )}
       {recipe === 'single' ? (
         <SingleFlash />
       ) : (

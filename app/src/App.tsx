@@ -3,10 +3,13 @@ import Keyboard3D from './components/Keyboard3D'
 import FlashView from './components/FlashView'
 import OledPanel from './components/OledPanel'
 import {
-  ConnectPanel, FirmwareGuide, KeyTooltip, LedPanel, LogPanel, MatrixGrid, TestPanel, connectedDemo, reconnectGranted,
+  ConnectPanel, FirmwareGuide, KeyTooltip, LedPanel, LogPanel, MatrixGrid, TestPanel, ZmkPanel, connectedDemo,
+  reconnectGranted,
 } from './components/Panels'
 import { useLab } from './lib/store'
-import { DEMO_KEYMAP } from './lib/layout/sofle'
+import { DEMO_KEYMAP, ZMK_ENCODERS, ZMK_KEYMAP } from './lib/layout/sofle'
+import { adapters } from './lib/store'
+import { DemoAdapter } from './lib/device/demo'
 import type { Side } from './lib/protocol'
 
 export default function App() {
@@ -67,6 +70,59 @@ export default function App() {
     }
   }, [demoMode])
 
+  // Prueba con ZMK: las teclas llegan como pulsaciones normales del teclado
+  const zmkMode = useLab((s) => s.zmkMode)
+  useEffect(() => {
+    if (!zmkMode) return
+    const zmk = (side: Side) =>
+      [...adapters.values()].find((a) => a instanceof DemoAdapter && a.kind === 'zmk' && a.side === side) as DemoAdapter | undefined
+    const down = new Set<string>()
+    let pendingCtrl: ReturnType<typeof setTimeout> | null = null
+    const emit = (code: string, pressed: boolean) => {
+      const id = ZMK_KEYMAP[code]
+      if (!id) return
+      const [side, r, c] = id.split(':')
+      zmk(side as Side)?.key(Number(r), Number(c), pressed)
+    }
+    const onDown = (e: KeyboardEvent) => {
+      const enc = ZMK_ENCODERS[e.code]
+      if (enc) {
+        e.preventDefault()
+        const [side, dir] = enc
+        zmk(side)?.turn(side === 'right' ? (-dir as 1 | -1) : dir)
+        return
+      }
+      if (!ZMK_KEYMAP[e.code]) return
+      e.preventDefault()
+      if (down.has(e.code)) return
+      down.add(e.code)
+      // En distribución español, AltGr (Alt derecho) también envía Ctrl izquierdo: se descarta ese Ctrl
+      if (e.code === 'ControlLeft') {
+        pendingCtrl = setTimeout(() => ((pendingCtrl = null), emit('ControlLeft', true)), 40)
+        return
+      }
+      if (e.code === 'AltRight' && pendingCtrl) {
+        clearTimeout(pendingCtrl)
+        pendingCtrl = null
+        down.delete('ControlLeft')
+      }
+      emit(e.code, true)
+    }
+    const onUp = (e: KeyboardEvent) => {
+      if (!ZMK_KEYMAP[e.code]) return
+      e.preventDefault()
+      if (!down.has(e.code)) return
+      down.delete(e.code)
+      emit(e.code, false)
+    }
+    window.addEventListener('keydown', onDown)
+    window.addEventListener('keyup', onUp)
+    return () => {
+      window.removeEventListener('keydown', onDown)
+      window.removeEventListener('keyup', onUp)
+    }
+  }, [zmkMode])
+
   return (
     <div className={`app view-${view}`}>
       <div className="stage">
@@ -97,6 +153,7 @@ export default function App() {
 
       <aside className="col left">
         <ConnectPanel />
+        {view === 'diag' && <ZmkPanel />}
         {view === 'diag' && <FirmwareGuide />}
         {view === 'diag' && <LedPanel sides={sides} />}
       </aside>

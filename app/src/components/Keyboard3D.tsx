@@ -3,7 +3,7 @@ import { Grid, OrbitControls, RoundedBox, Sparkles } from '@react-three/drei'
 import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { EXTRAS, KEYS, LED_ORDER, type KeyDef } from '../lib/layout/sofle'
+import { EXTRAS, KEYS, LED_ORDER, ZMK_UNTESTABLE, type KeyDef } from '../lib/layout/sofle'
 import { adapters, useLab, type KeyStat } from '../lib/store'
 import { DemoAdapter } from '../lib/device/demo'
 import type { Side } from '../lib/protocol'
@@ -33,6 +33,7 @@ const BASE = {
   pressed: new THREE.Color('#c4f7ff'),
   bounce: new THREE.Color('#ffd27a'),
   stuck: new THREE.Color('#ff86ab'),
+  untestable: new THREE.Color('#8f7fd6'),
 }
 
 /** Centro de la tecla rotada, en unidades de layout */
@@ -89,6 +90,7 @@ function demoFor(side: Side) {
 function Keycap({ def, active }: { def: KeyDef; active: boolean }) {
   const stat = useLab((s) => s.keys[def.id]) as KeyStat | undefined
   const led = useLab((s) => s.led)
+  const untestable = useLab((s) => s.zmkMode && ZMK_UNTESTABLE.has(def.id))
   const group = useRef<THREE.Group>(null)
   const mat = useRef<THREE.MeshStandardMaterial>(null)
   const glow = useRef<THREE.MeshBasicMaterial>(null)
@@ -104,7 +106,7 @@ function Keycap({ def, active }: { def: KeyDef; active: boolean }) {
     const now = performance.now()
     const stuck = !!stat?.pressed && now - stat.downAt > 4000
     let color = COLORS.idle
-    let base = BASE.idle
+    let base = untestable ? BASE.untestable : BASE.idle
     let intensity = 0
     if (stuck) [color, base, intensity] = [COLORS.stuck, BASE.stuck, 1.6]
     else if (stat?.pressed) [color, base, intensity] = [COLORS.pressed, BASE.pressed, 2.4]

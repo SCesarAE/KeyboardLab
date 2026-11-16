@@ -122,3 +122,42 @@ const rightRows = [
 ]
 leftRows.forEach((r, row) => r.forEach((code, col) => (DEMO_KEYMAP[code] = keyId('left', row, col))))
 rightRows.forEach((r, row) => r.forEach((code, col) => (DEMO_KEYMAP[code] = keyId('right', row, col))))
+
+// ---------------------------------------------------------------------------
+// Prueba con ZMK: keymap por defecto del shield sofle de ZMK (capa 0).
+// e.code es la posicion fisica (independiente del idioma del teclado en Windows).
+// ---------------------------------------------------------------------------
+export const ZMK_KEYMAP: Record<string, string> = {}
+const zl = [
+  ['Backquote', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'],
+  ['Escape', 'KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT'],
+  ['Tab', 'KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG'],
+  ['ShiftLeft', 'KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB'],
+  ['MetaLeft', 'AltLeft', 'ControlLeft', '', 'Enter', 'AudioVolumeMute'],
+]
+// derecha en coordenadas raw: col 0 = exterior ... col 5 = interior
+const zr = [
+  ['', 'Digit0', 'Digit9', 'Digit8', 'Digit7', 'Digit6'],
+  ['Backspace', 'KeyP', 'KeyO', 'KeyI', 'KeyU', 'KeyY'],
+  ['Quote', 'Semicolon', 'KeyL', 'KeyK', 'KeyJ', 'KeyH'],
+  ['ShiftRight', 'Slash', 'Period', 'Comma', 'KeyM', 'KeyN'],
+  ['MetaRight', 'AltRight', 'ControlRight', '', 'Space', ''],
+]
+zl.forEach((r, row) => r.forEach((code, col) => code && (ZMK_KEYMAP[code] = keyId('left', row, col))))
+zr.forEach((r, row) => r.forEach((code, col) => code && (ZMK_KEYMAP[code] = keyId('right', row, col))))
+
+/** Teclas que en la capa 0 no envian nada a la PC (&none o cambio de capa): no se pueden verificar con ZMK */
+export const ZMK_UNTESTABLE = new Set([
+  keyId('left', 4, 3), // LOWER
+  keyId('right', 4, 3), // RAISE
+  keyId('right', 0, 0), // &none
+  keyId('right', 4, 5), // &none
+])
+
+/** Encoders en ZMK: izquierda = volumen, derecha = Re Pag / Av Pag */
+export const ZMK_ENCODERS: Record<string, ['left' | 'right', 1 | -1]> = {
+  AudioVolumeUp: ['left', 1],
+  AudioVolumeDown: ['left', -1],
+  PageDown: ['right', 1],
+  PageUp: ['right', -1],
+}
