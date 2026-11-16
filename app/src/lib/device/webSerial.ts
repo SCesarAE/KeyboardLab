@@ -1,4 +1,4 @@
-import { parseLine, type DeviceMsg, type HostCmd } from '../protocol'
+import { cleanTerminal, parseLine, type DeviceMsg, type HostCmd } from '../protocol'
 import { nextId, type DeviceAdapter, type DeviceStatus } from './types'
 
 // VID de Adafruit: lo usan CircuitPython y el bootloader del nice!nano
@@ -109,7 +109,10 @@ export class WebSerialAdapter implements DeviceAdapter {
           const msg = parseLine(line)
           if (msg?.t === 'hello') this.gotHello = true
           if (msg) this.msgCbs.forEach((cb) => cb(msg))
-          else this.rawCbs.forEach((cb) => cb(line))
+          else {
+            const text = cleanTerminal(line).trim()
+            if (text) this.rawCbs.forEach((cb) => cb(text))
+          }
         }
         if (buffer.length > 4096) buffer = ''
       }

@@ -1,7 +1,7 @@
 // Protocolo JSON por lineas entre la app y el firmware de diagnostico.
 
 /** Version de code.py que espera esta app */
-export const EXPECTED_FW = '0.1.2'
+export const EXPECTED_FW = '0.2.0'
 
 /** a >= b para versiones x.y.z */
 export function versionAtLeast(a: string | undefined, b: string) {
@@ -31,6 +31,7 @@ export interface HelloMsg {
   leds: number
   maxBr: number
   vcc?: boolean
+  oled?: boolean
 }
 
 export interface KeyMsg {
@@ -74,11 +75,26 @@ export type HostCmd =
   | { cmd: 'leds'; n: number }
   | { cmd: 'vcc'; on: boolean }
   | { cmd: 'bootloader' }
+  | { cmd: 'oled'; op: 'init' | 'fill' | 'clear' | 'checker' | 'border' }
+  | { cmd: 'oled'; op: 'frame'; b64: string; ack?: boolean }
+  | { cmd: 'oled'; op: 'contrast'; v: number }
+  | { cmd: 'oled'; op: 'invert' | 'flip' | 'power'; v: boolean }
   | { cmd: 'led'; mode: LedMode; rgb?: [number, number, number]; i?: number; br?: number }
 
+/** Quita secuencias de escape de terminal (CircuitPython 10 escribe su barra de estado en la consola) */
+export function cleanTerminal(line: string) {
+  return line
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+    .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+    .replace(/[\x00-\x08\x0b-\x1f]/g, '')
+}
+
 export function parseLine(line: string): DeviceMsg | null {
-  const s = line.trim()
-  if (!s.startsWith('{')) return null
+  const clean = cleanTerminal(line)
+  const a = clean.indexOf('{')
+  const b = clean.lastIndexOf('}')
+  if (a < 0 || b < a) return null
+  const s = clean.slice(a, b + 1)
   try {
     const obj = JSON.parse(s)
     if (obj && typeof obj.t === 'string') return obj as DeviceMsg

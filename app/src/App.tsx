@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import Keyboard3D from './components/Keyboard3D'
 import FlashView from './components/FlashView'
+import OledPanel from './components/OledPanel'
 import {
   ConnectPanel, FirmwareGuide, KeyTooltip, LedPanel, LogPanel, MatrixGrid, TestPanel, connectedDemo, reconnectGranted,
 } from './components/Panels'
@@ -103,6 +104,7 @@ export default function App() {
       {view === 'diag' ? (
         <aside className="col right">
           <TestPanel sides={sides} />
+          <OledPanel />
         </aside>
       ) : (
         <main className="col flash-col">

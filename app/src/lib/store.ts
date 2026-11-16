@@ -17,6 +17,7 @@ export interface DeviceState {
   vcc?: boolean
   /** code.py no esta corriendo (error, REPL o modo seguro) */
   stalled?: string
+  oled?: boolean
   connectedAt: number
   lastSeen: number
 }
@@ -59,6 +60,8 @@ interface State {
   led: LedPreview
   demoMode: boolean
   view: 'diag' | 'flash'
+  oledFrames: Record<Side, Uint8Array | null>
+  setOledFrame: (side: Side | 'both', f: Uint8Array | null) => void
   setView: (v: 'diag' | 'flash') => void
   hovered: string | null
   setHovered: (id: string | null) => void
@@ -88,6 +91,11 @@ export const useLab = create<State>((set, get) => ({
   led: { side: 'both', index: null, rgb: [0, 255, 255], mode: 'off' },
   demoMode: false,
   view: 'diag',
+  oledFrames: { left: null, right: null },
+  setOledFrame: (side, f) =>
+    set((s) => ({
+      oledFrames: side === 'both' ? { left: f, right: f } : { ...s.oledFrames, [side]: f },
+    })),
   setView: (view) => set({ view }),
   hovered: null,
   setHovered: (id) => set({ hovered: id }),
@@ -201,12 +209,14 @@ function handleMessage(deviceId: string, msg: DeviceMsg) {
   if (!dev) return
   const touch = (patch: Partial<DeviceState> = {}) =>
     useLab.setState((s) => ({
-      devices: { ...s.devices, [deviceId]: { ...s.devices[deviceId], lastSeen: Date.now(), ...patch } },
+      // Cualquier mensaje valido demuestra que code.py esta corriendo
+      devices: { ...s.devices, [deviceId]: { ...s.devices[deviceId], lastSeen: Date.now(), stalled: undefined, ...patch } },
     }))
 
   switch (msg.t) {
     case 'hello':
-      touch({ fw: msg.fw, version: msg.v, side: msg.side, leds: msg.leds, enc: msg.enc, vcc: msg.vcc, stalled: undefined })
+      touch({ fw: msg.fw, version: msg.v, side: msg.side, leds: msg.leds, enc: msg.enc, vcc: msg.vcc, oled: msg.oled })
+      if (msg.oled === false) addLog('warn', 'No se detectó la OLED en I2C (0x3C): revisa sus 4 pines (GND, VCC, SCL, SDA)')
       addLog('ok', `Firmware ${msg.fw} v${msg.v} · lado: ${sideName(msg.side)} · ${msg.leds} LEDs`)
       break
     case 'hb':
@@ -214,6 +224,10 @@ function handleMessage(deviceId: string, msg: DeviceMsg) {
       break
     case 'ack':
       if (msg.cmd === 'vcc') touch({ vcc: Boolean(msg.on) })
+      else if (msg.cmd === 'oled' && msg.op === 'init') {
+        touch({ oled: Boolean(msg.ok) })
+        addLog(msg.ok ? 'ok' : 'warn', msg.ok ? `OLED detectada en 0x${Number(msg.addr).toString(16)}` : 'OLED no responde en I2C')
+      }
       else touch()
       break
     case 'err':

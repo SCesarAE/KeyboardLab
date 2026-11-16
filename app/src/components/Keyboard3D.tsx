@@ -7,6 +7,7 @@ import { EXTRAS, KEYS, LED_ORDER, type KeyDef } from '../lib/layout/sofle'
 import { adapters, useLab, type KeyStat } from '../lib/store'
 import { DemoAdapter } from '../lib/device/demo'
 import type { Side } from '../lib/protocol'
+import { unpackToImage } from '../lib/oled'
 
 // ---------------------------------------------------------------------------
 // Geometria: 1u (100 unidades de layout) = 1 unidad del mundo 3D
@@ -221,6 +222,7 @@ function Encoder({ side, active }: { side: Side; active: boolean }) {
 
 function Controller({ side }: { side: Side }) {
   const tested = useLab((s) => KEYS.filter((k) => k.side === side && s.keys[k.id]?.count).length)
+  const frame = useLab((s) => s.oledFrames[side])
   const total = KEYS.filter((k) => k.side === side).length
   const [x, z] = toLocal(side, ...EXTRAS[side].controller)
   const texture = useMemo(() => {
@@ -237,6 +239,12 @@ function Controller({ side }: { side: Side }) {
   // OLED virtual 128x32: muestra el progreso (en la fase 2 mostrara tus animaciones)
   useEffect(() => {
     const ctx = (texture.image as HTMLCanvasElement).getContext('2d')!
+    // Si se envio algo a la OLED real, el modelo muestra exactamente lo mismo
+    if (frame) {
+      unpackToImage(frame, ctx)
+      texture.needsUpdate = true
+      return
+    }
     ctx.fillStyle = '#000'
     ctx.fillRect(0, 0, 128, 32)
     ctx.fillStyle = '#7fe9ff'
@@ -248,7 +256,7 @@ function Controller({ side }: { side: Side }) {
     ctx.strokeRect(70, 15, 54, 8)
     ctx.fillRect(72, 17, Math.round((50 * tested) / total), 4)
     texture.needsUpdate = true
-  }, [tested, total, side, texture])
+  }, [tested, total, side, texture, frame])
 
   return (
     <group position={[x, PCB_TOP, z]}>
