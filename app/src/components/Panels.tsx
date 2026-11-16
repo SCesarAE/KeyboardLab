@@ -4,7 +4,8 @@ import { WebSerialAdapter, grantedPorts, isPortOpen, webSerialSupported } from '
 import { DemoAdapter } from '../lib/device/demo'
 import { diagnose, labelOf } from '../lib/diagnostics'
 import { COL_PINS, KEYS, LED_ORDER, ROW_PINS, keyId } from '../lib/layout/sofle'
-import { EXPECTED_FW, type LedMode, type Side } from '../lib/protocol'
+import { EXPECTED_FW, versionAtLeast, type LedMode, type Side } from '../lib/protocol'
+import { flashFile } from '../lib/flash/writer'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -21,9 +22,23 @@ export function Panel({ title, children, right }: { title: string; children: Rea
 }
 
 // ---------------------------------------------------------------------------
+async function updateCodePy(addLog: (l: 'info' | 'ok' | 'warn' | 'error', t: string) => void) {
+  try {
+    const r = await fetch(`${BASE}firmware/code.py`, { cache: 'no-store' })
+    const bytes = new Uint8Array(await r.arrayBuffer())
+    addLog('info', 'Elige la unidad CIRCUITPY de esta mitad…')
+    const res = await flashFile('code.py', bytes, 'circuitpy')
+    if (res.status === 'ok' || res.status === 'probable') addLog('ok', `code.py ${EXPECTED_FW} copiado${res.drive ? ` (${res.drive})` : ''}. La placa se reinicia sola.`)
+    else if (res.status === 'error') addLog('error', `No se copió code.py: ${res.detail}`)
+  } catch (e) {
+    addLog('error', `No se pudo preparar code.py: ${String(e)}`)
+  }
+}
+
 export function ConnectPanel() {
+  useTick(2000)
   const devices = useLab((s) => s.devices)
-  const { attach, detach, setSide, setDemoMode, demoMode, sendTo } = useLab()
+  const { attach, detach, setSide, setDemoMode, demoMode, sendTo, addLog } = useLab()
   const list = Object.values(devices)
   const supported = webSerialSupported()
   const [granted, setGranted] = useState(0)
@@ -77,7 +92,9 @@ export function ConnectPanel() {
       <ul className="devices">
         {list.length === 0 && <li className="muted">Sin dispositivos. Conecta una mitad con el firmware de diagnóstico.</li>}
         {list.map((d) => {
-          const oldFw = d.kind === 'webserial' && d.version && d.version !== EXPECTED_FW
+          const oldFw = d.kind === 'webserial' && !!d.version && !versionAtLeast(d.version, EXPECTED_FW)
+          const silent = d.kind === 'webserial' && d.status === 'connected' && !d.fw && Date.now() - d.connectedAt > 9000
+          const stuck = d.kind === 'webserial' && (!!d.stalled || silent)
           return (
             <li key={d.id} className={d.side === 'unknown' && d.fw ? 'needs-side' : ''}>
               <div className="dev-head">
@@ -90,9 +107,25 @@ export function ConnectPanel() {
                 {d.vcc === false && ' · VCC apagado'}
               </div>
               {oldFw && (
+                <p className="notice">Este code.py es v{d.version}; la app espera v{EXPECTED_FW}.</p>
+              )}
+              {stuck && (
                 <p className="notice">
-                  Este code.py es v{d.version}; la app espera v{EXPECTED_FW}. Descarga el nuevo y cópialo a CIRCUITPY.
+                  {d.stalled ? `code.py se detuvo: “${d.stalled}”.` : 'No responde: code.py no está corriendo o falta.'}
                 </p>
+              )}
+              {(oldFw || stuck) && (
+                <div className="row wrap">
+                  <button className="btn tiny primary" onClick={() => updateCodePy(addLog)}>⬆ Actualizar code.py</button>
+                  {stuck && (
+                    <button
+                      className="btn tiny"
+                      onClick={() => (adapters.get(d.id)?.sendRaw('\r\x04'), addLog('info', `${d.label}: reiniciando code.py (Ctrl-D)`))}
+                    >
+                      ↻ Reiniciar code.py
+                    </button>
+                  )}
+                </div>
               )}
               {d.kind === 'webserial' && d.side === 'unknown' && d.fw && (
                 <p className="hint">¿Qué mitad es? Mira la serigrafía LEFT / RIGHT junto al encoder. Se guarda en la placa.</p>

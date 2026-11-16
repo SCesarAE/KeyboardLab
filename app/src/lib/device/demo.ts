@@ -52,6 +52,8 @@ export class DemoAdapter implements DeviceAdapter {
     else this.emit({ t: 'ack', cmd: cmd.cmd })
   }
 
+  async sendRaw() {}
+
   key(row: number, col: number, pressed: boolean) {
     this.emit({ t: 'key', r: row, c: col, p: pressed ? 1 : 0, ms: Math.round(performance.now() - this.t0) })
   }

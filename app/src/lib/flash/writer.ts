@@ -50,7 +50,8 @@ async function identify(dir: DirHandle, target: Target): Promise<{ ok: boolean; 
     }
     return { ok: true, info: text.split('\n')[0]?.trim() ?? 'CircuitPython' }
   } catch {
-    return { ok: false, info: `No encontré ${marker} en “${dir.name}”` }
+    const where = !dir.name || dir.name === '\\' || dir.name === '/' ? 'la unidad elegida' : `“${dir.name}”`
+    return { ok: false, info: `No encontré ${marker} en ${where}` }
   }
 }
 
@@ -75,7 +76,11 @@ export async function writeWithDirectory(name: string, bytes: Uint8Array, target
       return {
         method: 'directory',
         status: 'error',
-        detail: `${who.info}. ${target === 'nicenano' ? 'Elige la unidad NICENANO (doble tap al reset).' : 'Elige la unidad CIRCUITPY.'}`,
+        detail: `${who.info}. ${
+          target === 'nicenano'
+            ? 'Esa no es NICENANO (¿elegiste CIRCUITPY?). La placa aún no está en el bootloader: reiníciala con doble tap.'
+            : 'Elige la unidad CIRCUITPY.'
+        } No se escribió nada.`,
       }
     }
     const file = await dir.getFileHandle(name, { create: true })

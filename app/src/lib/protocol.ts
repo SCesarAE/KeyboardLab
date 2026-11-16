@@ -3,6 +3,17 @@
 /** Version de code.py que espera esta app */
 export const EXPECTED_FW = '0.1.2'
 
+/** a >= b para versiones x.y.z */
+export function versionAtLeast(a: string | undefined, b: string) {
+  if (!a) return false
+  const pa = a.split('.').map(Number)
+  const pb = b.split('.').map(Number)
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) > (pb[i] ?? 0)
+  }
+  return true
+}
+
 export type Side = 'left' | 'right'
 export type SideOrUnknown = Side | 'unknown'
 

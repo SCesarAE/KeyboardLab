@@ -15,6 +15,9 @@ export interface DeviceState {
   leds: number
   enc: boolean
   vcc?: boolean
+  /** code.py no esta corriendo (error, REPL o modo seguro) */
+  stalled?: string
+  connectedAt: number
   lastSeen: number
 }
 
@@ -100,7 +103,7 @@ export const useLab = create<State>((set, get) => ({
         ...s.devices,
         [adapter.id]: {
           id: adapter.id, kind: adapter.kind, label: adapter.label, status: 'connecting',
-          side: 'unknown', leds: 29, enc: false, lastSeen: Date.now(),
+          side: 'unknown', leds: 29, enc: false, connectedAt: Date.now(), lastSeen: Date.now(),
         },
       },
     }))
@@ -126,7 +129,16 @@ export const useLab = create<State>((set, get) => ({
       }
       if (status === 'error') addLog('error', `${adapter.label}: ${detail ?? 'error'}`)
     })
-    adapter.onRaw((line) => addLog('raw', line))
+    adapter.onRaw((line) => {
+      addLog('raw', line)
+      if (/Traceback|Code done running|Press any key|^>>>|safe mode|Error:/i.test(line)) {
+        set((s) => {
+          const d = s.devices[adapter.id]
+          if (!d) return s
+          return { devices: { ...s.devices, [adapter.id]: { ...d, stalled: line.trim().slice(0, 120) } } }
+        })
+      }
+    })
     adapter.onMessage((msg) => handleMessage(adapter.id, msg))
 
     try {
@@ -194,7 +206,7 @@ function handleMessage(deviceId: string, msg: DeviceMsg) {
 
   switch (msg.t) {
     case 'hello':
-      touch({ fw: msg.fw, version: msg.v, side: msg.side, leds: msg.leds, enc: msg.enc, vcc: msg.vcc })
+      touch({ fw: msg.fw, version: msg.v, side: msg.side, leds: msg.leds, enc: msg.enc, vcc: msg.vcc, stalled: undefined })
       addLog('ok', `Firmware ${msg.fw} v${msg.v} · lado: ${sideName(msg.side)} · ${msg.leds} LEDs`)
       break
     case 'hb':

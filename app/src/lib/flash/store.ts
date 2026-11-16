@@ -8,6 +8,8 @@ export type Recipe = 'zmk' | 'diag' | 'single'
 export interface StepState {
   done: boolean
   result?: WriteResult
+  note?: string
+  error?: boolean
 }
 
 interface FlashState {

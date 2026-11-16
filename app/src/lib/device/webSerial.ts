@@ -121,6 +121,16 @@ export class WebSerialAdapter implements DeviceAdapter {
     }
   }
 
+  async sendRaw(text: string) {
+    if (!this.port?.writable) return
+    const writer = this.port.writable.getWriter()
+    try {
+      await writer.write(new TextEncoder().encode(text))
+    } finally {
+      writer.releaseLock()
+    }
+  }
+
   async send(cmd: HostCmd) {
     if (!this.port?.writable) return
     const writer = this.port.writable.getWriter()

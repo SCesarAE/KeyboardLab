@@ -12,6 +12,8 @@ export interface DeviceAdapter {
   connect(): Promise<void>
   disconnect(): Promise<void>
   send(cmd: HostCmd): Promise<void>
+  /** Bytes crudos al puerto (p. ej. Ctrl-D para reiniciar code.py) */
+  sendRaw(text: string): Promise<void>
   onMessage(cb: (msg: DeviceMsg) => void): void
   onRaw(cb: (line: string) => void): void
   onStatus(cb: (status: DeviceStatus, detail?: string) => void): void

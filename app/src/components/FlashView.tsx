@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Side } from '../lib/protocol'
+import { versionAtLeast, type Side } from '../lib/protocol'
 import { useLab } from '../lib/store'
 import { useFlash, type Recipe } from '../lib/flash/store'
 import { NRF52840, filesFromInput, kb, makeUf2, type Uf2File, type Uf2Role } from '../lib/flash/uf2'
@@ -238,10 +238,23 @@ function SidePlan({ side }: { side: Side }) {
     addLog(ok ? 'ok' : result.status === 'cancelled' ? 'warn' : 'error', `${name}: ${describe(result)}`)
   }
 
+  const canReboot = versionAtLeast(diagDevice?.version, '0.1.2')
+
   const reboot = async (i: number) => {
+    if (!diagDevice) return
+    setBusy(`${side}-${i}`)
     await sendTo(side, { cmd: 'bootloader' })
     addLog('info', `Mitad ${sideEs(side)}: reiniciando al bootloader…`)
-    markStep(side, i, { done: true })
+    // Solo se da por hecho cuando el puerto serie desaparece (la placa se reinicio de verdad)
+    const t0 = Date.now()
+    while (Date.now() - t0 < 6000 && useLab.getState().devices[diagDevice.id]) await new Promise((r) => setTimeout(r, 250))
+    setBusy(null)
+    if (useLab.getState().devices[diagDevice.id]) {
+      markStep(side, i, { done: false, error: true, note: 'La placa no se reinició. Usa doble tap al reset.' })
+      addLog('warn', `Mitad ${sideEs(side)}: no se reinició al bootloader`)
+    } else {
+      markStep(side, i, { done: true, note: 'Reiniciada. En unos segundos aparece NICENANO.' })
+    }
   }
 
   return (
@@ -261,8 +274,14 @@ function SidePlan({ side }: { side: Side }) {
               <div className="step-hint">{def.hint}</div>
               {active && def.kind === 'boot' && (
                 <div className="row wrap">
-                  {diagDevice ? (
-                    <button className="btn primary tiny" onClick={() => reboot(i)}>⟲ Reiniciar al bootloader</button>
+                  {diagDevice && canReboot ? (
+                    <button className="btn primary tiny" disabled={!!busy} onClick={() => reboot(i)}>
+                      {busy === `${side}-${i}` ? 'Reiniciando…' : '⟲ Reiniciar al bootloader'}
+                    </button>
+                  ) : diagDevice ? (
+                    <span className="step-hint warn">
+                      Su code.py (v{diagDevice.version ?? '?'}) no sabe reiniciarse solo: actualízalo en Conexión o usa doble tap.
+                    </span>
                   ) : (
                     <span className="step-hint">Doble tap rápido al reset (dos toques en menos de medio segundo).</span>
                   )}
@@ -288,6 +307,7 @@ function SidePlan({ side }: { side: Side }) {
                 )
               })()}
               {st?.result && <div className={`step-result ${st.done ? 'ok' : 'bad'}`}>{describe(st.result)}</div>}
+              {st?.note && <div className={`step-result ${st.error ? 'bad' : 'ok'}`}>{st.note}</div>}
             </li>
           )
         })}
