@@ -1,6 +1,8 @@
 import { useEffect, useMemo } from 'react'
 import Keyboard3D from './components/Keyboard3D'
-import { ConnectPanel, FirmwareGuide, KeyTooltip, LedPanel, LogPanel, MatrixGrid, TestPanel, connectedDemo } from './components/Panels'
+import {
+  ConnectPanel, FirmwareGuide, KeyTooltip, LedPanel, LogPanel, MatrixGrid, TestPanel, connectedDemo, reconnectGranted,
+} from './components/Panels'
 import { useLab } from './lib/store'
 import { DEMO_KEYMAP } from './lib/layout/sofle'
 import type { Side } from './lib/protocol'
@@ -14,6 +16,11 @@ export default function App() {
     for (const d of Object.values(devices)) if (d.status === 'connected' && d.side !== 'unknown') set.add(d.side)
     return (['left', 'right'] as Side[]).filter((s) => set.has(s))
   }, [devices])
+
+  // Al abrir la app, reconecta las mitades que Chrome ya autorizo
+  useEffect(() => {
+    void reconnectGranted()
+  }, [])
 
   // Modo demo: el teclado de la PC simula la matriz
   useEffect(() => {

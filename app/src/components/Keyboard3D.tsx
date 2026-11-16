@@ -19,11 +19,19 @@ const HALF_POS: Record<Side, [number, number, number]> = { left: [-4.3, 0, 0], r
 const HALF_YAW: Record<Side, number> = { left: 0.1, right: -0.1 }
 
 const COLORS = {
-  idle: new THREE.Color('#18202e'),
+  idle: new THREE.Color('#00ff9c'),
   tested: new THREE.Color('#00ff9c'),
   pressed: new THREE.Color('#00e5ff'),
   bounce: new THREE.Color('#ffb020'),
   stuck: new THREE.Color('#ff2d6f'),
+}
+// Color base (claro) de cada estado, para que el teclado resalte sobre el fondo oscuro
+const BASE = {
+  idle: new THREE.Color('#c9d4e3'),
+  tested: new THREE.Color('#8af7c9'),
+  pressed: new THREE.Color('#c4f7ff'),
+  bounce: new THREE.Color('#ffd27a'),
+  stuck: new THREE.Color('#ff86ab'),
 }
 
 /** Centro de la tecla rotada, en unidades de layout */
@@ -95,16 +103,18 @@ function Keycap({ def, active }: { def: KeyDef; active: boolean }) {
     const now = performance.now()
     const stuck = !!stat?.pressed && now - stat.downAt > 4000
     let color = COLORS.idle
+    let base = BASE.idle
     let intensity = 0
-    if (stuck) [color, intensity] = [COLORS.stuck, 2.4]
-    else if (stat?.pressed) [color, intensity] = [COLORS.pressed, 3.2]
-    else if ((stat?.bounces ?? 0) >= 2) [color, intensity] = [COLORS.bounce, 1.2]
-    else if (stat?.count) [color, intensity] = [COLORS.tested, 0.55]
+    if (stuck) [color, base, intensity] = [COLORS.stuck, BASE.stuck, 1.6]
+    else if (stat?.pressed) [color, base, intensity] = [COLORS.pressed, BASE.pressed, 2.4]
+    else if ((stat?.bounces ?? 0) >= 2) [color, base, intensity] = [COLORS.bounce, BASE.bounce, 0.8]
+    else if (stat?.count) [color, base, intensity] = [COLORS.tested, BASE.tested, 0.35]
 
     const k = 1 - Math.exp(-dt * 14)
+    mat.current.color.lerp(base, k)
     mat.current.emissive.lerp(color, k)
     mat.current.emissiveIntensity += (intensity - mat.current.emissiveIntensity) * k
-    mat.current.opacity = active ? 1 : 0.35
+    mat.current.opacity = active ? 1 : 0.5
     const targetY = CAP_Y - (stat?.pressed ? 0.12 : 0) + (hover ? 0.05 : 0)
     group.current.position.y += (targetY - group.current.position.y) * k
 
@@ -162,7 +172,7 @@ function Keycap({ def, active }: { def: KeyDef; active: boolean }) {
           onPointerUp={press(false)}
           onPointerLeave={(e) => stat?.pressed && press(false)(e)}
         >
-          <meshStandardMaterial ref={mat} color="#0d121b" roughness={0.35} metalness={0.4} transparent />
+          <meshStandardMaterial ref={mat} color="#c9d4e3" emissive="#000000" emissiveIntensity={0} roughness={0.55} metalness={0.05} transparent />
         </RoundedBox>
       </group>
     </group>
@@ -194,7 +204,7 @@ function Encoder({ side, active }: { side: Side; active: boolean }) {
       <group ref={knob} position={[0, 0.34, 0]}>
         <mesh>
           <cylinderGeometry args={[0.24, 0.26, 0.42, 24]} />
-          <meshStandardMaterial color="#20262f" metalness={0.9} roughness={0.25} transparent opacity={active ? 1 : 0.4} />
+          <meshStandardMaterial color="#9aa6b5" metalness={0.85} roughness={0.3} transparent opacity={active ? 1 : 0.6} />
         </mesh>
         <mesh position={[0, 0.215, 0.13]}>
           <boxGeometry args={[0.04, 0.01, 0.14]} />
@@ -282,10 +292,10 @@ function Half({ side, active }: { side: Side; active: boolean }) {
   return (
     <group position={HALF_POS[side]} rotation={[0, HALF_YAW[side], 0]}>
       <mesh geometry={outline}>
-        <meshStandardMaterial color="#07090d" metalness={0.5} roughness={0.55} />
+        <meshStandardMaterial color="#1d2a3c" metalness={0.35} roughness={0.5} />
       </mesh>
       <lineSegments geometry={edges}>
-        <lineBasicMaterial color={active ? '#00e5ff' : '#29425a'} transparent opacity={active ? 0.9 : 0.4} />
+        <lineBasicMaterial color={active ? '#5ff0ff' : '#4d7391'} transparent opacity={active ? 1 : 0.7} />
       </lineSegments>
       {keys.map((k) => (
         <Keycap key={k.id} def={k} active={active} />
@@ -301,8 +311,9 @@ export default function Keyboard3D({ activeSides }: { activeSides: Side[] }) {
     <Canvas camera={{ position: [0, 16.5, 15.5], fov: 38 }} dpr={[1, 2]} gl={{ antialias: true }}>
       <color attach="background" args={['#04060b']} />
       <fog attach="fog" args={['#04060b', 26, 55]} />
-      <ambientLight intensity={0.35} />
-      <directionalLight position={[4, 10, 6]} intensity={1.1} />
+      <ambientLight intensity={0.55} />
+      <hemisphereLight args={['#cdeeff', '#0a0f18', 0.7]} />
+      <directionalLight position={[4, 12, 8]} intensity={1.5} />
       <pointLight position={[-6, 3, -4]} intensity={18} color="#7a3cff" />
       <pointLight position={[6, 3, 4]} intensity={14} color="#00e5ff" />
       <Grid
@@ -329,7 +340,7 @@ export default function Keyboard3D({ activeSides }: { activeSides: Side[] }) {
         maxPolarAngle={Math.PI / 2.15}
       />
       <EffectComposer>
-        <Bloom intensity={1.1} luminanceThreshold={0.55} luminanceSmoothing={0.2} mipmapBlur />
+        <Bloom intensity={0.9} luminanceThreshold={0.9} luminanceSmoothing={0.15} mipmapBlur />
         <Vignette eskil={false} offset={0.2} darkness={0.75} />
       </EffectComposer>
     </Canvas>

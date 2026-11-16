@@ -4,6 +4,17 @@ import { nextId, type DeviceAdapter, type DeviceStatus } from './types'
 // VID de Adafruit: lo usan CircuitPython y el bootloader del nice!nano
 const FILTERS: SerialPortFilter[] = [{ usbVendorId: 0x239a }]
 
+/** Puertos abiertos por esta pestaña (para no abrir dos veces el mismo) */
+const openPorts = new Set<SerialPort>()
+
+export const isPortOpen = (p: SerialPort) => openPorts.has(p)
+
+export async function grantedPorts() {
+  if (!webSerialSupported()) return []
+  const ports = await navigator.serial.getPorts()
+  return ports.filter((p) => p.getInfo().usbVendorId === 0x239a)
+}
+
 export const webSerialSupported = () => typeof navigator !== 'undefined' && 'serial' in navigator
 
 export class WebSerialAdapter implements DeviceAdapter {
@@ -15,6 +26,12 @@ export class WebSerialAdapter implements DeviceAdapter {
   private reader: ReadableStreamDefaultReader<string> | null = null
   private readLoop: Promise<void> | null = null
   private closing = false
+  private preset: SerialPort | null
+
+  /** Si se pasa un puerto ya autorizado, no se abre el selector de Chrome */
+  constructor(port?: SerialPort) {
+    this.preset = port ?? null
+  }
   private msgCbs: ((m: DeviceMsg) => void)[] = []
   private rawCbs: ((l: string) => void)[] = []
   private statusCbs: ((s: DeviceStatus, d?: string) => void)[] = []
@@ -35,11 +52,15 @@ export class WebSerialAdapter implements DeviceAdapter {
 
   async connect() {
     this.emitStatus('connecting')
-    // Debe llamarse desde un clic del usuario (requisito de Chrome)
-    const port = await navigator.serial.requestPort({ filters: FILTERS })
+    // requestPort debe llamarse desde un clic del usuario (requisito de Chrome)
+    const port = this.preset ?? (await navigator.serial.requestPort({ filters: FILTERS }))
+    if (openPorts.has(port)) {
+      throw new Error('Ese puerto ya está conectado. En la lista elige el otro nice!nano (el que no dice "conectado").')
+    }
     const info = port.getInfo()
     this.label = `USB ${hex(info.usbVendorId)}:${hex(info.usbProductId)}`
     await port.open({ baudRate: 115200 })
+    openPorts.add(port)
     this.port = port
     this.closing = false
     navigator.serial.addEventListener('disconnect', this.handleUnplug)
@@ -107,6 +128,7 @@ export class WebSerialAdapter implements DeviceAdapter {
     } catch {
       /* el puerto ya no existe */
     }
+    openPorts.delete(this.port)
     this.port = null
     this.emitStatus('disconnected')
   }

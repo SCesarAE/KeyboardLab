@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { adapters, sideName, useLab } from '../lib/store'
-import { WebSerialAdapter, webSerialSupported } from '../lib/device/webSerial'
+import { WebSerialAdapter, grantedPorts, isPortOpen, webSerialSupported } from '../lib/device/webSerial'
 import { DemoAdapter } from '../lib/device/demo'
 import { diagnose, labelOf } from '../lib/diagnostics'
 import { COL_PINS, KEYS, LED_ORDER, ROW_PINS, keyId } from '../lib/layout/sofle'
-import type { LedMode, Side } from '../lib/protocol'
+import { EXPECTED_FW, type LedMode, type Side } from '../lib/protocol'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -23,9 +23,15 @@ export function Panel({ title, children, right }: { title: string; children: Rea
 // ---------------------------------------------------------------------------
 export function ConnectPanel() {
   const devices = useLab((s) => s.devices)
-  const { attach, detach, setSide, setDemoMode, demoMode } = useLab()
+  const { attach, detach, setSide, setDemoMode, demoMode, sendTo } = useLab()
   const list = Object.values(devices)
   const supported = webSerialSupported()
+  const [granted, setGranted] = useState(0)
+
+  const refreshGranted = async () => setGranted((await grantedPorts()).filter((p) => !isPortOpen(p)).length)
+  useEffect(() => {
+    void refreshGranted()
+  }, [list.length])
 
   const startDemo = async () => {
     setDemoMode(true)
@@ -44,16 +50,25 @@ export function ConnectPanel() {
           Este navegador no expone <code>Web Serial</code>. Usa Chrome o Edge en escritorio. Mientras, prueba el modo demo.
         </p>
       )}
-      <div className="row">
+      <div className="row wrap">
         <button className="btn primary" disabled={!supported} onClick={() => attach(new WebSerialAdapter())}>
           ⚡ Conectar mitad (USB)
         </button>
+        {granted > 0 && (
+          <button className="btn" onClick={() => reconnectGranted()}>
+            ↻ Reconectar {granted} autorizada{granted > 1 ? 's' : ''}
+          </button>
+        )}
         {demoMode ? (
           <button className="btn" onClick={stopDemo}>Salir de demo</button>
         ) : (
           <button className="btn" onClick={startDemo}>Modo demo</button>
         )}
       </div>
+      <p className="hint">
+        Para la segunda mitad pulsa otra vez “Conectar mitad” y elige el otro puerto. Chrome recuerda ambos: la próxima vez se
+        conectan solos.
+      </p>
       {demoMode && (
         <p className="hint">
           Demo: usa tu teclado (QWERTY) o haz clic en las teclas 3D. Encoders: ←/→ izquierda, ↑/↓ derecha.
@@ -61,30 +76,60 @@ export function ConnectPanel() {
       )}
       <ul className="devices">
         {list.length === 0 && <li className="muted">Sin dispositivos. Conecta una mitad con el firmware de diagnóstico.</li>}
-        {list.map((d) => (
-          <li key={d.id}>
-            <div className="dev-head">
-              <span className={`dot ${d.status}`} />
-              <b>{d.label}</b>
-              <button className="btn tiny ghost" onClick={() => detach(d.id)} title="Desconectar">✕</button>
-            </div>
-            <div className="dev-meta">
-              {d.fw ? `${d.fw} v${d.version}` : 'Esperando saludo del firmware…'} · lado: {sideName(d.side)}
-            </div>
-            {d.kind === 'webserial' && (
-              <div className="row">
-                {(['left', 'right'] as Side[]).map((s) => (
-                  <button key={s} className={`btn tiny ${d.side === s ? 'on' : ''}`} onClick={() => setSide(d.id, s)}>
-                    {s === 'left' ? 'Izquierda' : 'Derecha'}
-                  </button>
-                ))}
+        {list.map((d) => {
+          const oldFw = d.kind === 'webserial' && d.version && d.version !== EXPECTED_FW
+          return (
+            <li key={d.id} className={d.side === 'unknown' && d.fw ? 'needs-side' : ''}>
+              <div className="dev-head">
+                <span className={`dot ${d.status}`} />
+                <b>{d.label}</b>
+                <button className="btn tiny ghost" onClick={() => detach(d.id)} title="Desconectar">✕</button>
               </div>
-            )}
-          </li>
-        ))}
+              <div className="dev-meta">
+                {d.fw ? `${d.fw} v${d.version}` : 'Esperando saludo del firmware…'} · lado: {sideName(d.side)}
+                {d.vcc === false && ' · VCC apagado'}
+              </div>
+              {oldFw && (
+                <p className="notice">
+                  Este code.py es v{d.version}; la app espera v{EXPECTED_FW}. Descarga el nuevo y cópialo a CIRCUITPY.
+                </p>
+              )}
+              {d.kind === 'webserial' && d.side === 'unknown' && d.fw && (
+                <p className="hint">¿Qué mitad es? Mira la serigrafía LEFT / RIGHT junto al encoder. Se guarda en la placa.</p>
+              )}
+              {d.kind === 'webserial' && (
+                <div className="row">
+                  {(['left', 'right'] as Side[]).map((s) => (
+                    <button key={s} className={`btn tiny ${d.side === s ? 'on' : ''}`} onClick={() => setSide(d.id, s)}>
+                      {s === 'left' ? 'Izquierda' : 'Derecha'}
+                    </button>
+                  ))}
+                  {d.vcc === false && d.side !== 'unknown' && (
+                    <button className="btn tiny" onClick={() => sendTo(d.side as Side, { cmd: 'vcc', on: true })}>
+                      Encender VCC
+                    </button>
+                  )}
+                </div>
+              )}
+            </li>
+          )
+        })}
       </ul>
     </Panel>
   )
+}
+
+/** Conecta todos los puertos que Chrome ya autorizó (sin abrir el selector) */
+let reconnecting = false
+export async function reconnectGranted() {
+  if (reconnecting) return
+  reconnecting = true
+  try {
+    const ports = (await grantedPorts()).filter((p) => !isPortOpen(p))
+    for (const p of ports) await useLab.getState().attach(new WebSerialAdapter(p))
+  } finally {
+    reconnecting = false
+  }
 }
 
 // ---------------------------------------------------------------------------

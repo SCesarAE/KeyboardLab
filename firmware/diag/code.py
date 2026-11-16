@@ -22,7 +22,7 @@ import rotaryio
 import supervisor
 
 FW_NAME = "keyboardlab-diag"
-FW_VERSION = "0.1.0"
+FW_VERSION = "0.1.1"
 
 # ---------------------------------------------------------------------------
 # Pinout (tomado del shield sofle de ZMK, igual al Sofle Choc de QMK)
@@ -74,9 +74,12 @@ def send(obj):
 # ---------------------------------------------------------------------------
 # Hardware
 # ---------------------------------------------------------------------------
-# VCC externo (alimenta LEDs y OLED): P0.13 en bajo = encendido
+# VCC externo (alimenta LEDs y OLED).
+# nice!nano v2 y clones: P0.13 en ALTO = VCC encendido (en ZMK: ext-power ACTIVE_HIGH).
+# Ojo: CircuitPython llama a este pin "VCC_OFF", pero en la v2 la logica es la inversa.
 vcc = digitalio.DigitalInOut(board.VCC_OFF)
-vcc.switch_to_output(value=False)
+vcc.switch_to_output(value=True)
+time.sleep(0.05)
 
 status_led = digitalio.DigitalInOut(board.LED)
 status_led.switch_to_output(value=False)
@@ -186,6 +189,7 @@ def hello():
         "enc": has_encoder,
         "leds": led_count,
         "maxBr": MAX_BRIGHTNESS,
+        "vcc": vcc.value,
     })
 
 
@@ -198,6 +202,11 @@ def handle(msg):
         send({"t": "ack", "cmd": "ping"})
     elif cmd == "side":
         send({"t": "ack", "cmd": "side", "side": write_side(msg.get("v", ""))})
+    elif cmd == "vcc":
+        vcc.value = bool(msg.get("on", True))
+        time.sleep(0.05)
+        apply_static_leds()
+        send({"t": "ack", "cmd": "vcc", "on": vcc.value})
     elif cmd == "leds":
         n = int(msg.get("n", DEFAULT_LEDS))
         led_count = max(1, min(64, n))

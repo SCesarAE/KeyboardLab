@@ -14,6 +14,7 @@ export interface DeviceState {
   version?: string
   leds: number
   enc: boolean
+  vcc?: boolean
   lastSeen: number
 }
 
@@ -70,6 +71,7 @@ interface State {
 export const adapters = new Map<string, DeviceAdapter>()
 
 const BOUNCE_MS = 30
+const warnedUnknown = new Set<string>()
 const emptyEncoder = (): EncoderStat => ({ pos: 0, cw: 0, ccw: 0, lastAt: 0, lastDir: 0 })
 let logId = 0
 
@@ -177,14 +179,15 @@ function handleMessage(deviceId: string, msg: DeviceMsg) {
 
   switch (msg.t) {
     case 'hello':
-      touch({ fw: msg.fw, version: msg.v, side: msg.side, leds: msg.leds, enc: msg.enc })
+      touch({ fw: msg.fw, version: msg.v, side: msg.side, leds: msg.leds, enc: msg.enc, vcc: msg.vcc })
       addLog('ok', `Firmware ${msg.fw} v${msg.v} · lado: ${sideName(msg.side)} · ${msg.leds} LEDs`)
       break
     case 'hb':
       touch()
       break
     case 'ack':
-      touch()
+      if (msg.cmd === 'vcc') touch({ vcc: Boolean(msg.on) })
+      else touch()
       break
     case 'err':
       addLog('error', `Dispositivo: ${msg.msg}`)
@@ -212,7 +215,10 @@ function handleMessage(deviceId: string, msg: DeviceMsg) {
     case 'key': {
       touch()
       if (dev.side === 'unknown') {
-        addLog('warn', `Tecla r${msg.r} c${msg.c}: asigna primero el lado de esta mitad`)
+        if (!warnedUnknown.has(deviceId)) {
+          warnedUnknown.add(deviceId)
+          addLog('warn', `${dev.label}: llegan teclas pero falta asignar el lado (botones Izquierda / Derecha)`)
+        }
         return
       }
       const id = keyId(dev.side, msg.r, msg.c)
