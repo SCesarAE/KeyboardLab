@@ -38,7 +38,10 @@ function stepsFor(recipe: Recipe, side: Side): StepDef[] {
       {
         kind: 'done',
         title: 'Listo',
-        hint: side === 'left' ? 'Busca “Sofle” en Bluetooth de Windows y emparéjalo.' : 'Enciéndela junto a la izquierda: se enlazan solas.',
+        hint:
+          side === 'left'
+            ? 'Busca “Sofle” en Bluetooth de Windows y emparéjalo. Con ZMK ya no aparece como puerto serie en Diagnóstico.'
+            : 'Enciéndela junto a la izquierda: se enlazan solas. Con ZMK ya no aparece como puerto serie en Diagnóstico.',
       },
     ]
   }

@@ -84,6 +84,10 @@ export function ConnectPanel() {
         Para la segunda mitad pulsa otra vez “Conectar mitad” y elige el otro puerto. Chrome recuerda ambos: la próxima vez se
         conectan solos.
       </p>
+      <p className="hint">
+        ¿Chrome dice “No se encontraron dispositivos”? Si la mitad ya tiene ZMK, es normal: ZMK funciona como teclado, no como
+        puerto serie. Para diagnosticarla otra vez: Flash → “Volver al diagnóstico”.
+      </p>
       {demoMode && (
         <p className="hint">
           Demo: usa tu teclado (QWERTY) o haz clic en las teclas 3D. Encoders: ←/→ izquierda, ↑/↓ derecha.
